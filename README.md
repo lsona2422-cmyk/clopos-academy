@@ -7,7 +7,9 @@
 - Sayt 3 tilda: русский, o'zbekcha, English (yuqoridagi til tanlash menyusi).
 - Istalgan kishi ro'yxatdan o'tadi va darhol **stajyor** sifatida kursga kiradi.
 - **lsona2422@gmail.com** — egasi (owner): doim administrator, uni o'chirib yoki rolini o'zgartirib bo'lmaydi.
-- Administrator **«Jamoa va ruxsatlar»** bo'limida barcha foydalanuvchilarni ko'radi: rol beradi, murabbiy biriktiradi, ismini o'zgartiradi, natijalarni nolga tushiradi, bloklaydi yoki o'chiradi.
+- Administrator **«Jamoa va ruxsatlar»** bo'limida barcha foydalanuvchilarni ko'radi: rol beradi, murabbiy biriktiradi, ismini o'zgartiradi, **xatsiz yangi parol qo'yadi**, pochtani tasdiqlaydi, natijalarni nolga tushiradi, bloklaydi yoki o'chiradi.
+- Har bir foydalanuvchi o'z parolini saytning yuqorisidagi **«Parolni o'zgartirish»** tugmasi bilan o'zgartiradi.
+- Supabase'ning standart pochtasi butun loyiha uchun **soatiga 2 ta xat** yuboradi. Shuning uchun **Authentication → Sign In / Providers → Email → Confirm email** ni o'chirib qo'ying.
 
 ## O'zbekcha: GitHub'ga joylash
 
@@ -102,6 +104,12 @@ window.ACADEMY_CONFIG = {
    - **Имя** — исправить имя сотрудника;
    - **Сбросить** — обнулить весь прогресс; в «Подробнее» можно сбросить результат одного дня или теста;
    - **Удалить** — удалить аккаунт вместе с прогрессом.
+   - **Пароль** — задать сотруднику новый пароль без писем (почта при этом подтверждается);
+   - **Подтвердить почту** — если письмо с подтверждением не пришло.
+
+Каждый сотрудник может сменить свой пароль сам: кнопка **«Сменить пароль»** в шапке сайта.
+
+> Стандартная почта Supabase отправляет **всего 2 письма в час на весь проект**. Поэтому лучше выключить **Confirm email** (шаг 6) и восстанавливать пароли через кнопку **«Пароль»** в панели. Если нужны письма — подключите свой SMTP (шаг 6), после этого лимит можно поднять в **Authentication → Rate Limits**.
 4. Наставник в разделе **«Мои стажёры»** видит закреплённых за ним стажёров: пройденные дни, результаты проверок и итоговых тестов (лучший и последний результат, число попыток, вопросы с ошибками), практические задания, просмотренные видео и тренажёры, последнюю активность.
 
 Стажёру дни открываются по порядку: следующий день — после проверки на 80% и выше, итоговые тесты — после дня 6. Наставнику и администратору открыто всё.

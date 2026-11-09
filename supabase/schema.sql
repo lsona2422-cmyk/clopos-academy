@@ -138,6 +138,42 @@ begin
   delete from auth.users where id = target;
 end $$;
 
+
+-- Пароль сотруднику задаёт администратор (без писем). Заодно подтверждает почту.
+create or replace function public.admin_set_password(target uuid, new_password text)
+returns void language plpgsql security definer set search_path = public, extensions, auth as $$
+begin
+  perform public.require_admin();
+  if length(coalesce(new_password,'')) < 6 then
+    raise exception 'Пароль должен быть не короче 6 символов';
+  end if;
+  if public.is_owner(target) and target is distinct from auth.uid() then
+    raise exception 'Пароль владельца может менять только сам владелец';
+  end if;
+  update auth.users
+     set encrypted_password = extensions.crypt(new_password, extensions.gen_salt('bf')),
+         email_confirmed_at = coalesce(email_confirmed_at, now()),
+         updated_at = now()
+   where id = target;
+end $$;
+
+-- Подтвердить почту сотрудника вручную (если письмо не пришло)
+create or replace function public.admin_confirm_email(target uuid)
+returns void language plpgsql security definer set search_path = public, auth as $$
+begin
+  perform public.require_admin();
+  update auth.users set email_confirmed_at = coalesce(email_confirmed_at, now()), updated_at = now() where id = target;
+end $$;
+
+-- Статус аккаунтов для панели администратора: почта подтверждена, последний вход
+create or replace function public.admin_user_status()
+returns table(id uuid, confirmed boolean, last_sign_in timestamptz)
+language plpgsql stable security definer set search_path = public, auth as $$
+begin
+  perform public.require_admin();
+  return query select u.id, u.email_confirmed_at is not null, u.last_sign_in_at from auth.users u;
+end $$;
+
 -- 7. Права доступа (Row Level Security)
 alter table public.profiles enable row level security;
 alter table public.progress enable row level security;
@@ -191,6 +227,12 @@ grant execute on function public.admin_set_role(uuid, text, uuid) to authenticat
 grant execute on function public.admin_set_name(uuid, text) to authenticated;
 grant execute on function public.admin_reset_progress(uuid, text) to authenticated;
 grant execute on function public.admin_delete_user(uuid) to authenticated;
+grant execute on function public.admin_set_password(uuid, text) to authenticated;
+grant execute on function public.admin_confirm_email(uuid) to authenticated;
+grant execute on function public.admin_user_status() to authenticated;
+revoke execute on function public.admin_set_password(uuid, text) from anon;
+revoke execute on function public.admin_confirm_email(uuid) from anon;
+revoke execute on function public.admin_user_status() from anon;
 revoke execute on function public.require_admin() from anon;
 grant execute on function public.my_role() to authenticated;
 

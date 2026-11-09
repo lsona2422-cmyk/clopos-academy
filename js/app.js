@@ -32,7 +32,10 @@ function SupaBackend(){
   async setRole(uid,role,mentor){ok(await sb.rpc("admin_set_role",{target:uid,new_role:role,new_mentor:mentor||null}))},
   async setName(uid,name){ok(await sb.rpc("admin_set_name",{target:uid,new_name:name}))},
   async resetProgress(uid,stage){ok(await sb.rpc("admin_reset_progress",{target:uid,stage:stage||null}))},
-  async deleteUser(uid){ok(await sb.rpc("admin_delete_user",{target:uid}))}
+  async deleteUser(uid){ok(await sb.rpc("admin_delete_user",{target:uid}))},
+  async adminSetPassword(uid,pw){ok(await sb.rpc("admin_set_password",{target:uid,new_password:pw}))},
+  async confirmEmail(uid){ok(await sb.rpc("admin_confirm_email",{target:uid}))},
+  async userStatus(){return ok(await sb.rpc("admin_user_status"))||[]}
  };
 }
 function LocalBackend(){
@@ -51,9 +54,9 @@ function LocalBackend(){
   async signUp(email,pw,name){email=email.trim().toLowerCase();if(Object.values(mem.users).some(u=>u.email===email))throw err("User already registered");
    const id="u"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
    mem.users[id]={email,pw,full_name:name,role:isOwnerEmail(email)?"admin":"intern",mentor_id:null,created_at:new Date().toISOString()};mem.session=id;put();cbs.forEach(c=>c("SIGNED_IN",me()));return {needsConfirm:false}},
-  async signIn(email,pw){email=email.trim().toLowerCase();const id=Object.keys(mem.users).find(k=>mem.users[k].email===email);if(!id||mem.users[id].pw!==pw)throw err("Invalid login credentials");mem.session=id;put();cbs.forEach(c=>c("SIGNED_IN",me()))},
+  async signIn(email,pw){email=email.trim().toLowerCase();const id=Object.keys(mem.users).find(k=>mem.users[k].email===email);if(!id||mem.users[id].pw!==pw)throw err("Invalid login credentials");mem.session=id;mem.users[id].last_sign_in=new Date().toISOString();put();cbs.forEach(c=>c("SIGNED_IN",me()))},
   async reset(){throw err("demo")},
-  async setPassword(){},
+  async setPassword(pw){if(mem.session)mem.users[mem.session].pw=pw;put()},
   async signOut(){mem.session=null;put();cbs.forEach(c=>c("SIGNED_OUT",null))},
   async profile(uid){const u=mem.users[uid];return u?{id:uid,email:u.email,full_name:u.full_name,role:u.role,mentor_id:u.mentor_id,created_at:u.created_at}:null},
   async loadProgress(uid){return mem.progress[uid]?mem.progress[uid].state:null},
@@ -63,7 +66,10 @@ function LocalBackend(){
   async setRole(uid,role,mentor){adm();if(isOwnerEmail(mem.users[uid].email))throw err(t("owner_note"));if(uid===mem.session)throw err("forbidden");mem.users[uid].role=role;mem.users[uid].mentor_id=role==="intern"?(mentor||null):null;put()},
   async setName(uid,name){adm();mem.users[uid].full_name=String(name||"").trim().slice(0,120);put()},
   async resetProgress(uid,stage){adm();if(!stage)delete mem.progress[uid];else if(mem.progress[uid]&&mem.progress[uid].state.res)delete mem.progress[uid].state.res[stage];put()},
-  async deleteUser(uid){adm();if(isOwnerEmail(mem.users[uid].email))throw err(t("owner_note"));if(uid===mem.session)throw err("forbidden");delete mem.users[uid];delete mem.progress[uid];Object.values(mem.users).forEach(u=>{if(u.mentor_id===uid)u.mentor_id=null});put()}
+  async deleteUser(uid){adm();if(isOwnerEmail(mem.users[uid].email))throw err(t("owner_note"));if(uid===mem.session)throw err("forbidden");delete mem.users[uid];delete mem.progress[uid];Object.values(mem.users).forEach(u=>{if(u.mentor_id===uid)u.mentor_id=null});put()},
+  async adminSetPassword(uid,pw){adm();if(String(pw).length<6)throw err(t("v_pw6"));if(isOwnerEmail(mem.users[uid].email)&&uid!==mem.session)throw err("forbidden");mem.users[uid].pw=pw;put()},
+  async confirmEmail(){adm()},
+  async userStatus(){adm();return Object.keys(mem.users).map(id=>({id,confirmed:true,last_sign_in:mem.users[id].last_sign_in||null}))}
  };
 }
 const useSupa=!!(CFG.supabaseUrl&&CFG.supabaseAnonKey&&window.supabase&&window.supabase.createClient);
@@ -94,14 +100,15 @@ function authView(mode,msg){
  let body="";
  if(mode==="login")body=f("a_email",t("f_email"),"email","email")+f("a_pw",t("f_pw"),"password","current-password")+`<button class="primary" type="submit">${t("btn_login")}</button><div class="row small"><a href="#" data-mode="register">${t("link_to_register")}</a>${demo?"":`<a href="#" data-mode="reset">${t("link_forgot")}</a>`}</div>`;
  if(mode==="register")body=f("a_name",t("f_name"),"text","name")+f("a_email",t("f_email"),"email","email")+f("a_pw",t("f_pw6"),"password","new-password")+f("a_pw2",t("f_pw2"),"password","new-password")+`<button class="primary" type="submit">${t("btn_register")}</button><p class="small muted">${t("reg_hint")}</p><div class="row small"><a href="#" data-mode="login">${t("link_to_login")}</a></div>`;
- if(mode==="reset")body=f("a_email",t("f_email"),"email","email")+`<button class="primary" type="submit">${t("btn_send_link")}</button><div class="row small"><a href="#" data-mode="login">${t("link_back_login")}</a></div>`;
- if(mode==="newpw")body=f("a_pw",t("f_newpw"),"password","new-password")+`<button class="primary" type="submit">${t("btn_save_pw")}</button>`;
+ if(mode==="reset")body=f("a_email",t("f_email"),"email","email")+`<button class="primary" type="submit">${t("btn_send_link")}</button><p class="small muted">${t("reset_hint")}</p><div class="row small"><a href="#" data-mode="login">${t("link_back_login")}</a></div>`;
+ if(mode==="newpw")body=f("a_pw",t("f_newpw"),"password","new-password")+f("a_pw2",t("f_pw2"),"password","new-password")+`<button class="primary" type="submit">${t("btn_save_pw")}</button>${App.recovery?"":`<div class="row small"><a href="#" id="pwCancel">${t("link_cancel")}</a></div>`}`;
  return `<div class="auth"><div class="auth-card"><div class="auth-top"><div class="auth-brand">${LOGO("auth-logo")}<div><b>Retention Academy</b><span>${t("brand_sub_auth")}</span></div></div>${langSwitch()}</div>
  <h1>${title}</h1>${demo?`<div class="note">${t("demo_auth_note")}</div>`:""}
  <form id="authForm" novalidate>${body}<p id="authMsg" class="small" role="status">${msg||""}</p></form></div></div>`}
 function bindAuth(mode){
  bindLang();
  document.querySelectorAll("[data-mode]").forEach(a=>a.onclick=e=>{e.preventDefault();showAuth(a.dataset.mode)});
+ const pc=$("pwCancel");if(pc)pc.onclick=e=>{e.preventDefault();boot()};
  $("authForm").onsubmit=async e=>{e.preventDefault();const m=$("authMsg");const btn=e.target.querySelector("button[type=submit]");m.style.color="";
   const v=id=>($(id)?$(id).value.trim():"");
   try{btn.disabled=true;
@@ -109,11 +116,11 @@ function bindAuth(mode){
    if(mode==="register"){if(!v("a_name"))throw new Error(t("v_name"));if(!/^\S+@\S+\.\S+$/.test(v("a_email")))throw new Error(t("v_email"));if($("a_pw").value.length<6)throw new Error(t("v_pw6"));if($("a_pw").value!==$("a_pw2").value)throw new Error(t("v_pw_match"));
     const r=await BE.signUp(v("a_email"),$("a_pw").value,v("a_name"));if(r.needsConfirm){showAuth("login",t("msg_sent_confirm",esc(v("a_email"))));return}}
    if(mode==="reset"){await BE.reset(v("a_email"));m.textContent=t("msg_reset_sent");btn.disabled=false;return}
-   if(mode==="newpw"){if($("a_pw").value.length<6)throw new Error(t("v_pw6"));await BE.setPassword($("a_pw").value);App.recovery=false;await boot();return}
+   if(mode==="newpw"){if($("a_pw").value.length<6)throw new Error(t("v_pw6"));if($("a_pw").value!==$("a_pw2").value)throw new Error(t("v_pw_match"));await BE.setPassword($("a_pw").value);App.recovery=false;await boot();return}
    await boot()
   }catch(ex){m.style.color="var(--bad)";m.textContent=errText(ex);btn.disabled=false}}}
 function errText(ex){const s=String(ex&&ex.message||ex);
- if(/Invalid login/i.test(s))return t("e_invalid");if(/Email not confirmed/i.test(s))return t("e_unconfirmed");if(/already registered/i.test(s))return t("e_exists");if(/rate limit/i.test(s))return t("e_rate");if(/Failed to fetch|NetworkError/i.test(s))return t("e_network");return s}
+ if(/Invalid login/i.test(s))return t("e_invalid");if(/Email not confirmed/i.test(s))return t("e_unconfirmed");if(/already registered/i.test(s))return t("e_exists");if(/email rate limit|over_email_send_rate_limit/i.test(s))return t("e_email_rate");if(/rate limit/i.test(s))return t("e_rate");if(/Failed to fetch|NetworkError/i.test(s))return t("e_network");return s}
 function showAuth(mode,msg){document.body.classList.add("auth-mode");$("app").innerHTML=authView(mode,msg);bindAuth(mode)}
 
 /* ================= Загрузка ================= */
@@ -138,10 +145,11 @@ function shell(){
  $("app").innerHTML=`<header class="top"><a class="brand" href="#start">${LOGO("brand-mark",true)}<span>Retention Academy<small>${t("brand_sub")}</small></span></a><span class="spacer"></span>
  <a href="#modules" class="toplink">${t("nav_modules")}</a>${isStaff()?`<a href="#team" class="toplink">${teamLabel()}</a>`:""}
  <div class="progress-pill" title="${t("progress_title")}"><span id="progTxt">0 / 9</span><span class="bar"><i id="progBar"></i></span></div>
- ${langSwitch()}<div class="who"><span class="who-name">${esc(App.profile.full_name||App.user.email)}</span><span class="chip ${role()==="intern"?"info":"ok"}">${roleName(role())}</span><button id="logout" class="sm">${t("btn_logout")}</button></div></header>
+ ${langSwitch()}<div class="who"><span class="who-name">${esc(App.profile.full_name||App.user.email)}</span><span class="chip ${role()==="intern"?"info":"ok"}">${roleName(role())}</span><button id="chpw" class="sm">${t("btn_change_pw")}</button><button id="logout" class="sm">${t("btn_logout")}</button></div></header>
  ${BE.mode==="demo"?`<div class="demo-bar">${t("demo_bar")}</div>`:""}
  <div class="shell"><nav class="side" id="sideNav" aria-label="${t("nav_program")}"></nav><main><div class="navsel"><label class="f" for="navSelect">${t("nav_section")}<select id="navSelect"></select></label></div><div id="views"></div></main></div>`;
  bindLang();
+ $("chpw").onclick=()=>showAuth("newpw");
  $("logout").onclick=async()=>{await BE.signOut();App.user=null;App.profile=null;location.hash="";boot()};
  $("navSelect").onchange=e=>location.hash=e.target.value}
 
@@ -238,8 +246,8 @@ function summarize(st){st=Object.assign(blank(),st||{});const days=DAY_IDS.filte
  const curDay=DAY_IDS.find(id=>!passed(st,id));const tasks=DAY_IDS.reduce((a,id)=>a+(st.tasks[id]||[]).filter(Boolean).length,0),tTotal=DAY_IDS.reduce((a,id)=>a+DAYS[id].tasks.length,0);
  const sims=Object.keys(st.sims||{}).length,vids=Object.keys(st.vids||{}).length;return {st,days,ex,curDay,tasks,tTotal,sims,vids}}
 const dt=s=>s?new Date(s).toLocaleString(LOCALE,{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"—";
-let TEAM={profiles:[],progress:{},sel:null,msg:""};
-async function loadTeam(){const box=$("teamBox");try{const [pr,pg]=await Promise.all([BE.listProfiles(),BE.listProgress()]);TEAM.profiles=pr||[];TEAM.progress={};(pg||[]).forEach(r=>TEAM.progress[r.user_id]=r);drawTeam()}catch(e){box.innerHTML=`<div class="note">${esc(t("team_load_fail",errText(e)))}</div>`}}
+let TEAM={profiles:[],progress:{},status:{},sel:null,msg:""};
+async function loadTeam(){const box=$("teamBox");try{const [pr,pg,us]=await Promise.all([BE.listProfiles(),BE.listProgress(),role()==="admin"?BE.userStatus().catch(()=>[]):Promise.resolve([])]);TEAM.profiles=pr||[];TEAM.progress={};(pg||[]).forEach(r=>TEAM.progress[r.user_id]=r);TEAM.status={};(us||[]).forEach(r=>TEAM.status[r.id]=r);drawTeam()}catch(e){box.innerHTML=`<div class="note">${esc(t("team_load_fail",errText(e)))}</div>`}}
 function drawTeam(){const box=$("teamBox");if(!box)return;const admin=role()==="admin";const me=App.user.id;
  const mentors=TEAM.profiles.filter(p=>p.role==="mentor"||p.role==="admin");
  const interns=TEAM.profiles.filter(p=>p.role==="intern"&&(admin||p.mentor_id===me));
@@ -250,11 +258,11 @@ function drawTeam(){const box=$("teamBox");if(!box)return;const admin=role()==="
   html+=`<div class="kpis"><div class="kpi"><span class="v">${TEAM.profiles.length}</span><span class="l">${t("k_users")}</span></div><div class="kpi"><span class="v">${cnt("intern")}</span><span class="l">${t("k_interns")}</span></div><div class="kpi"><span class="v">${cnt("mentor")}</span><span class="l">${t("k_mentors")}</span></div><div class="kpi"><span class="v">${cnt("admin")}</span><span class="l">${t("k_admins")}</span></div><div class="kpi"><span class="v">${cnt("blocked")}</span><span class="l">${t("k_blocked")}</span></div></div>
   <h2>${t("users")}</h2><input class="search" id="uq" placeholder="${t("search_users")}" autocomplete="off" aria-label="${t("search_users")}" value="${esc(TEAM.q||"")}">
   <div class="tbl-wrap"><table><thead><tr><th>${t("th_employee")}</th><th>${t("th_role")}</th><th>${t("th_mentor")}</th><th>${t("th_progress")}</th><th>${t("th_activity")}</th><th>${t("th_reg")}</th><th>${t("th_actions")}</th></tr></thead><tbody>${list.length?list.map(p=>{const own=isOwnerEmail(p.email),self=p.id===me,locked=own||self;const pr=TEAM.progress[p.id];const sm=summarize(pr&&pr.state);
-   return `<tr><td><b>${name(p)}</b>${own?` <span class="chip ok">${t("role_owner")}</span>`:""}${self?` <span class="small muted">(${t("you")})</span>`:""}<br><span class="small muted">${esc(p.email)}</span></td>
+   return `<tr><td><b>${name(p)}</b>${own?` <span class="chip ok">${t("role_owner")}</span>`:""}${self?` <span class="small muted">(${t("you")})</span>`:""}<br><span class="small muted">${esc(p.email)}</span>${TEAM.status[p.id]&&!TEAM.status[p.id].confirmed?`<br><span class="chip warn">${t("unconfirmed")}</span>`:""}</td>
    <td>${locked?`<span class="chip ok">${roleName(p.role)}</span>`:`<select data-role="${p.id}" aria-label="${t("th_role")}: ${name(p)}">${ROLE_KEYS.map(k=>`<option value="${k}" ${p.role===k?"selected":""}>${roleName(k)}</option>`).join("")}</select>`}</td>
    <td>${p.role==="intern"?`<select data-mentor="${p.id}" aria-label="${t("th_mentor")}: ${name(p)}"><option value="">${t("mentor_none")}</option>${mentors.map(m=>`<option value="${m.id}" ${p.mentor_id===m.id?"selected":""}>${name(m)}</option>`).join("")}</select>`:"—"}</td>
-   <td style="white-space:nowrap"><span class="mono">${sm.days}/6 · T${sm.ex}/3</span><div class="minibar"><i style="width:${sm.days/6*100}%"></i></div></td><td class="small">${dt(pr&&pr.updated_at)}</td><td class="small">${dt(p.created_at)}</td>
-   <td><div class="row" style="gap:6px;min-width:150px"><button class="sm" data-open="${p.id}">${t("btn_details")}</button><button class="sm" data-rename="${p.id}">${t("act_rename")}</button>${pr?`<button class="sm" data-reset="${p.id}">${t("act_reset")}</button>`:""}${locked?"":`<button class="sm danger" data-del="${p.id}">${t("act_delete")}</button>`}</div></td></tr>`}).join(""):`<tr><td colspan="7" class="muted">${t("no_users_found")}</td></tr>`}</tbody></table></div><p class="small muted">${t("owner_note")}</p><p id="roleMsg" class="small" role="status">${esc(TEAM.msg)}</p>`}
+   <td style="white-space:nowrap"><span class="mono">${sm.days}/6 · T${sm.ex}/3</span><div class="minibar"><i style="width:${sm.days/6*100}%"></i></div></td><td class="small">${dt(pr&&pr.updated_at)}</td><td class="small">${dt(p.created_at)}${TEAM.status[p.id]&&TEAM.status[p.id].last_sign_in?`<br><span class="muted">${t("last_login",dt(TEAM.status[p.id].last_sign_in))}</span>`:""}</td>
+   <td><div class="row" style="gap:6px;min-width:150px"><button class="sm" data-open="${p.id}">${t("btn_details")}</button><button class="sm" data-rename="${p.id}">${t("act_rename")}</button>${own&&!self?"":`<button class="sm" data-pw="${p.id}">${t("act_password")}</button>`}${TEAM.status[p.id]&&!TEAM.status[p.id].confirmed?`<button class="sm" data-confirm="${p.id}">${t("act_confirm")}</button>`:""}${pr?`<button class="sm" data-reset="${p.id}">${t("act_reset")}</button>`:""}${locked?"":`<button class="sm danger" data-del="${p.id}">${t("act_delete")}</button>`}</div></td></tr>`}).join(""):`<tr><td colspan="7" class="muted">${t("no_users_found")}</td></tr>`}</tbody></table></div><p class="small muted">${t("owner_note")}</p><p id="roleMsg" class="small" role="status">${esc(TEAM.msg)}</p>`}
  html+=`<h2>${t("progress_h")}</h2>`;
  if(!interns.length)html+=`<p class="muted">${admin?t("no_interns_admin"):t("no_interns_mentor")}</p>`;
  else html+=`<div class="tbl-wrap"><table><thead><tr><th>${t("th_intern")}</th><th>${t("th_days")}</th><th>${t("th_day_checks")}</th><th>${t("th_exams")}</th><th>${t("th_practice")}</th><th>${t("th_media")}</th><th>${t("th_activity")}</th><th></th></tr></thead><tbody>${interns.map(p=>{const pr=TEAM.progress[p.id];const s=summarize(pr&&pr.state);
@@ -272,6 +280,8 @@ function drawTeam(){const box=$("teamBox");if(!box)return;const admin=role()==="
  box.querySelectorAll("[data-rename]").forEach(b=>b.onclick=()=>{const p=P_(b.dataset.rename);const v=prompt(t("prompt_name",p.full_name||p.email),p.full_name||"");if(v===null||!v.trim())return;act(()=>BE.setName(p.id,v.trim()),t("done_renamed")).then(()=>{if(p.id===me){App.profile.full_name=v.trim();const w=document.querySelector(".who-name");if(w)w.textContent=v.trim()}})});
  box.querySelectorAll("[data-reset]").forEach(b=>b.onclick=()=>{const p=P_(b.dataset.reset);if(!confirm(t("confirm_reset",p.full_name||p.email)))return;act(()=>BE.resetProgress(p.id,null),t("done_reset",p.full_name||p.email)).then(()=>{if(p.id===me){App.state=blank();LS.set("clopos-academy-cache-"+me,null);renderNav()}})});
  box.querySelectorAll("[data-reset-stage]").forEach(b=>b.onclick=()=>{const p=P_(TEAM.sel),st=b.dataset.resetStage;const lbl=EXAMS[st]?EXAMS[st][0]:t("check_day_title",DAYS[st].n);if(!confirm(t("confirm_reset_stage",lbl,p.full_name||p.email)))return;act(()=>BE.resetProgress(p.id,st),t("done_reset",(p.full_name||p.email)+" · "+lbl)).then(()=>{if(p.id===me){delete App.state.res[st];renderNav()}})});
+ box.querySelectorAll("[data-pw]").forEach(b=>b.onclick=()=>{const p=P_(b.dataset.pw);const v=prompt(t("prompt_pw",p.full_name||p.email),"");if(v===null)return;if(v.length<6){msg(t("v_pw6"),true);return}act(()=>BE.adminSetPassword(p.id,v),t("done_pw",p.full_name||p.email))});
+ box.querySelectorAll("[data-confirm]").forEach(b=>b.onclick=()=>{const p=P_(b.dataset.confirm);act(()=>BE.confirmEmail(p.id),t("done_confirmed",p.full_name||p.email))});
  box.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{const p=P_(b.dataset.del);if(!confirm(t("confirm_delete",p.full_name||p.email,p.email)))return;if(TEAM.sel===p.id)TEAM.sel=null;act(()=>BE.deleteUser(p.id),t("done_deleted",p.full_name||p.email))})}
 function chipRes(st,id,label){const r=st.res[id];if(!r)return `<span class="chip plain" title="${t("chip_not_passed")}">${label}</span>`;return `<span class="chip ${r.best/r.total>=PASS?"ok":"bad"}" title="${t("chip_title",r.best,r.total,r.tries)}">${label}: ${Math.round(r.best/r.total*100)}%</span>`}
 function detail(p,admin){const pr=TEAM.progress[p.id],s=summarize(pr&&pr.state),st=s.st;
