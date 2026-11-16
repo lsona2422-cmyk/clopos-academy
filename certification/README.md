@@ -1,11 +1,8 @@
-# Сертификационный тест отдела Retention
+# Финальный тест стажёра отдела Retention / Yakuniy test
 
-- `Clopos_Retention_сертификационный_тест.pdf` — тест для стажёра: 60 открытых вопросов (50 вопросов + 10 рабочих ситуаций), поля для ответа можно заполнить в PDF или распечатать.
-- `Clopos_Retention_ключ_для_проверяющего.pdf` — эталонные ответы, критерии оценки и лист результатов. Стажёру не выдаётся.
+- `Clopos_Retention_финальный_тест_RU.pdf` — русский вариант.
+- `Clopos_Retention_yakuniy_test_UZ.pdf` — o‘zbekcha variant.
 
-Как изменить вопросы: правьте `source/data.py` (вопрос, число строк для ответа, эталон) и пересоберите:
+Структура (100 баллов, сдан при 80): A — 10 теоретических вопросов (30), B — запись в CRM по ситуации (30), C — проблемная ситуация (20), D — ролевая игра с проверяющим (20). Поля можно заполнить в PDF или распечатать.
 
-```bash
-pip install reportlab pypdf
-python3 certification/source/gen.py certification
-```
+Изменить текст: `source/texts.py`, пересобрать: `python3 certification/source/final.py certification` (нужны reportlab и pypdf).
