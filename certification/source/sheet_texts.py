@@ -16,7 +16,7 @@ S = {
   "Скидки и особые условия; конфликтные и сложные случаи; передача клиента другому сотруднику; обещания, не согласованные с компанией; угроза ухода крупного клиента.",
   "Количество чеков и средний чек (выручка = чеки × средний чек). Где: Аналитика → Новая панель управления, Отчёт о продажах; сравнивать одинаковые периоды; можно спросить AI Ассистента.",
   "Меню → Товары: позиции с отрицательной наценкой → вкладка «Состав» (техкарта): количество и единицы, цены ингредиентов (граммы и килограммы). Дополнительно: категории в Финансах (инкассация не должна быть расходом).",
-  "а) Киоск самообслуживания, Экран состояния заказа (KDS); б) модуль Yandex Eats; в) Лояльность (кешбэк), Кампании, Отзывы. Засчитывать при 2 верных модулях из трёх ситуаций — 2 балла.",
+  "а) Киоск самообслуживания (бесплатно) и Экран состояния заказа (3 $); плюс KDS (9 $), если очередь из-за медленной кухни. б) Модуль Yandex Eats (19 $). в) Лояльность — кешбэк (19 $), Кампании (9 $), Отзывы (5 $). 3 балла — верно для всех трёх ситуаций, 2 — для двух, 1 — для одной.",
  ],
  B="B. Запись в CRM — 30 баллов",
  B_items=[
@@ -67,7 +67,7 @@ S = {
   "Chegirma va maxsus shartlar; nizoli va murakkab holatlar; mijozni boshqa xodimga topshirish; kompaniya bilan kelishilmagan va’dalar; yirik mijozning ketish xavfi.",
   "Cheklar soni va o‘rtacha chek (tushum = cheklar × o‘rtacha chek). Qayerda: Аналитика → Новая панель управления, Отчет о продажах; bir xil davrlarni solishtirish; AI Yordamchidan so‘rash mumkin.",
   "Меню → Товары: manfiy ustamali pozitsiyalar → «Состав» yorlig‘i (texkarta): miqdor va birliklar, ingredientlar narxi (gramm va kilogramm). Qo‘shimcha: Moliyadagi kategoriyalar (inkassatsiya xarajat bo‘lmasligi kerak).",
-  "a) O‘z-o‘ziga xizmat kioski, Buyurtma holati ekrani (KDS); b) Yandex Eats moduli; v) Loyallik (keshbek), Kampaniyalar, Sharhlar. Uchta holatdan 2 tasi to‘g‘ri bo‘lsa — 2 ball.",
+  "a) O‘z-o‘ziga xizmat kioski (bepul) va Buyurtma holati ekrani (3 $); navbat sekin oshxona sababli bo‘lsa — KDS (9 $). b) Yandex Eats moduli (19 $). v) Loyallik — keshbek (19 $), Kampaniyalar (9 $), Sharhlar (5 $). 3 ball — uchala holat uchun to‘g‘ri, 2 — ikkitasi uchun, 1 — bittasi uchun.",
  ],
  B="B. CRM yozuvi — 30 ball",
  B_items=[
